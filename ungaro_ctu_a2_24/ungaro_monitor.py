@@ -115,13 +115,17 @@ def main():
     print(f"  Intervalle: {intervalle_maj}s")
     
     # Configuration client MQTT
+    print("Création client MQTT...")
     try:
         client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+        print("Client MQTT VERSION2 créé")
     except (AttributeError, ImportError):
         try:
             client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION1)
+            print("Client MQTT VERSION1 créé")
         except (AttributeError, ImportError):
             client = mqtt.Client()
+            print("Client MQTT legacy créé")
     
     def on_connect(client, userdata, flags, rc, properties=None):
         print(f"MQTT connecté: code {rc}")
@@ -140,15 +144,22 @@ def main():
     
     # Authentification MQTT si nécessaire
     if mqtt_user and mqtt_password:
+        print(f"Configuration auth MQTT: {mqtt_user}")
         client.username_pw_set(mqtt_user, mqtt_password)
+    else:
+        print("Pas d'authentification MQTT")
     
     # Connexion MQTT
+    print(f"Tentative connexion MQTT à {mqtt_host}:{mqtt_port}...")
     try:
         client.connect(mqtt_host, mqtt_port, 60)
+        print("Connexion MQTT initialisée")
     except Exception as e:
         print(f"Erreur connexion MQTT: {e}")
+        print("Tentative avec localhost...")
         try:
             client.connect('localhost', mqtt_port, 60)
+            print("Connexion localhost initialisée")
         except Exception as e2:
             print(f"Erreur connexion localhost: {e2}")
             return
