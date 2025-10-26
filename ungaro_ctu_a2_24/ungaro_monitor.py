@@ -84,14 +84,20 @@ def configurer_mqtt_discovery(client):
     }
     
     # Publication des configurations
-    client.publish("homeassistant/sensor/ungaro_etat_code/config", json.dumps(config_etat_num), retain=True)
-    client.publish("homeassistant/sensor/ungaro_etat_nom/config", json.dumps(config_etat_nom), retain=True)
+    print("Publication config MQTT Discovery...")
+    result1 = client.publish("homeassistant/sensor/ungaro_etat_code/config", json.dumps(config_etat_num), retain=True)
+    result2 = client.publish("homeassistant/sensor/ungaro_etat_nom/config", json.dumps(config_etat_nom), retain=True)
+    print(f"Config publiée - Code: {result1.rc}, Nom: {result2.rc}")
     
     # États initiaux
+    print("Publication états initiaux...")
     client.publish("ungaro/etat/code", "0", retain=True)
     client.publish("ungaro/etat/nom", "Arrêt", retain=True)
     
     print("MQTT Discovery configuré pour Ungaro CTU A2 24")
+    print(f"Device ID: {DEVICE_INFO['identifiers'][0]}")
+    print(f"Topics: homeassistant/sensor/ungaro_etat_code/config")
+    print(f"        homeassistant/sensor/ungaro_etat_nom/config")
 
 def main():
     # Récupération des variables d'environnement
@@ -119,8 +125,18 @@ def main():
     
     def on_connect(client, userdata, flags, rc, properties=None):
         print(f"MQTT connecté: code {rc}")
+        if rc == 0:
+            print("Connexion MQTT réussie")
+            # Configuration MQTT Discovery après connexion
+            configurer_mqtt_discovery(client)
+        else:
+            print(f"Échec connexion MQTT: {rc}")
+    
+    def on_publish(client, userdata, mid):
+        print(f"Message publié: {mid}")
     
     client.on_connect = on_connect
+    client.on_publish = on_publish
     
     # Authentification MQTT si nécessaire
     if mqtt_user and mqtt_password:
@@ -138,10 +154,7 @@ def main():
             return
     
     client.loop_start()
-    time.sleep(2)
-    
-    # Configuration MQTT Discovery
-    configurer_mqtt_discovery(client)
+    time.sleep(5)  # Attendre plus longtemps pour la connexion
     
     print("Démarrage surveillance Ungaro CTU A2 24...")
     
