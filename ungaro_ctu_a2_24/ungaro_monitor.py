@@ -1,3 +1,5 @@
+print("DEBUT DU SCRIPT PYTHON", flush=True)
+
 import socket
 import time
 import json
@@ -5,15 +7,20 @@ import os
 from datetime import datetime
 import paho.mqtt.client as mqtt
 
+print("IMPORTS TERMINES", flush=True)
+
 def charger_etats_chaudiere():
     """Charge les états depuis le fichier JSON"""
+    print("Tentative de chargement du fichier JSON...", flush=True)
     try:
         with open('/app/etats_chaudiere.json', 'r', encoding='utf-8') as f:
             etats_str = json.load(f)
             # Convertir les clés string en int pour compatibilité
-            return {int(k): v for k, v in etats_str.items()}
+            etats = {int(k): v for k, v in etats_str.items()}
+            print(f"Fichier JSON chargé: {len(etats)} états", flush=True)
+            return etats
     except Exception as e:
-        print(f"Erreur chargement états: {e}")
+        print(f"Erreur chargement états: {e}", flush=True)
         return {}
 
 # Chargement des états
@@ -232,12 +239,19 @@ def main():
             pass
 
 if __name__ == "__main__":
+    print("=== Démarrage Ungaro Monitor ===", flush=True)
+    print("Test d'import...", flush=True)
+    
     try:
-        print("=== Démarrage Ungaro Monitor ===")
+        print("Chargement des états...", flush=True)
+        etats = charger_etats_chaudiere()
+        print(f"États chargés: {len(etats)} éléments", flush=True)
+        
+        print("Lancement main()...", flush=True)
         main()
     except Exception as e:
-        print(f"ERREUR FATALE: {e}")
+        print(f"ERREUR FATALE: {e}", flush=True)
         import traceback
         traceback.print_exc()
-        print("Le script va s'arrêter...")
-        time.sleep(10)  # Laisser le temps de voir l'erreur
+        print("Le script va s'arrêter...", flush=True)
+        time.sleep(30)  # Plus de temps pour voir l'erreur

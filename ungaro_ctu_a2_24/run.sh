@@ -24,5 +24,20 @@ export MQTT_PASSWORD="${mqtt_password}"
 export INTERVALLE_MAJ="${intervalle_maj}"
 
 # Lancement du script Python
+bashio::log.info "Lancement du script Python..."
 cd /app
+
+# Vérifier que les fichiers existent
+if [ ! -f "ungaro_monitor.py" ]; then
+    bashio::log.error "Fichier ungaro_monitor.py introuvable!"
+    exit 1
+fi
+
+if [ ! -f "etats_chaudiere.json" ]; then
+    bashio::log.error "Fichier etats_chaudiere.json introuvable!"
+    exit 1
+fi
+
+bashio::log.info "Fichiers trouvés, démarrage Python..."
 python3 ungaro_monitor.py
+bashio::log.error "Le script Python s'est arrêté avec le code: $?"
