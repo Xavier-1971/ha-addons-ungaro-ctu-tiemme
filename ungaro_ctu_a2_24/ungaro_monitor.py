@@ -191,8 +191,20 @@ def main():
         client.disconnect()
 
 if __name__ == "__main__":
+    print("=== TEST MINIMAL ===")
     try:
+        print("Import paho.mqtt.client...")
+        import paho.mqtt.client as mqtt_test
+        print("Import OK")
+        
+        print("Création client MQTT...")
+        client_test = mqtt_test.Client()
+        print("Client créé avec succès !")
+        
+        print("Lancement main()...")
         main()
     except Exception as e:
-        print(f"Erreur: {e}")
-        time.sleep(10)
+        print(f"ERREUR FATALE: {e}")
+        import traceback
+        traceback.print_exc()
+        time.sleep(30)
