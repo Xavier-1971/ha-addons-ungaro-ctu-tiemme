@@ -5,8 +5,6 @@ import os
 from datetime import datetime
 import paho.mqtt.client as mqtt
 
-print("SCRIPT PYTHON DEMARRE", flush=True)
-
 def charger_etats_chaudiere():
     """Charge les états depuis le fichier JSON"""
     try:
@@ -103,9 +101,7 @@ def configurer_mqtt_discovery(client):
     print(f"        homeassistant/sensor/ungaro_etat_nom/config")
 
 def main():
-    print("DEBUT MAIN", flush=True)
     try:
-        print("Récupération config...", flush=True)
         # Récupération des variables d'environnement
         adresse_ip = os.environ.get('ADRESSE_IP', '192.168.1.16')
         port_tcp = int(os.environ.get('PORT_TCP', '8899'))
@@ -115,96 +111,92 @@ def main():
         mqtt_password = os.environ.get('MQTT_PASSWORD', '')
         intervalle_maj = int(os.environ.get('INTERVALLE_MAJ', '30'))
         
-        print(f"Configuration: {adresse_ip}:{port_tcp} -> {mqtt_host}:{mqtt_port}", flush=True)
+        print(f"Configuration: {adresse_ip}:{port_tcp} -> {mqtt_host}:{mqtt_port}")
     except Exception as e:
-        print(f"Erreur configuration: {e}", flush=True)
+        print(f"Erreur configuration: {e}")
         return
     
     # Configuration client MQTT
-    print("Création client MQTT...", flush=True)
     try:
         client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION1)
-        print("Client MQTT créé", flush=True)
     except Exception as e:
-        print(f"Erreur création client MQTT: {e}", flush=True)
+        print(f"Erreur création client MQTT: {e}")
         return
     
-    print("Configuration callbacks...", flush=True)
-    
     def on_connect(client, userdata, flags, rc, properties=None):
-        print(f"Callback on_connect: rc={rc}", flush=True)
         if rc == 0:
-            print("MQTT connecté", flush=True)
+            print("MQTT connecté")
             configurer_mqtt_discovery(client)
         else:
-            print(f"Erreur MQTT: {rc}", flush=True)
+            print(f"Erreur MQTT: {rc}")
     
     def on_publish(client, userdata, mid, reason_code=None, properties=None):
         pass  # Silencieux
     
     client.on_connect = on_connect
     client.on_publish = on_publish
-    print("Callbacks configurés", flush=True)
     
     # Authentification MQTT si nécessaire
-    print("Configuration auth...", flush=True)
     if mqtt_user and mqtt_password:
-        print(f"Auth MQTT: {mqtt_user}", flush=True)
         client.username_pw_set(mqtt_user, mqtt_password)
-    else:
-        print("Pas d'auth MQTT", flush=True)
     
     # Test de connexion TCP à la chaudière
-    print("Test TCP...", flush=True)
     test_reponse = envoyer_commande_tcp(adresse_ip, port_tcp, "I30001000000000000")
     if not test_reponse:
-        print("ERREUR: Chaudière inaccessible", flush=True)
+        print("ERREUR: Chaudière inaccessible")
         return
-    print("TCP OK", flush=True)
     
     # Connexion MQTT
-    print("Connexion MQTT...", flush=True)
     try:
         client.connect(mqtt_host, mqtt_port, 60)
-        print("Connect MQTT lancé", flush=True)
     except Exception as e:
-        print(f"Erreur MQTT: {e}", flush=True)
+        print(f"Erreur MQTT: {e}")
         return
     
-    print("Démarrage loop MQTT...", flush=True)
     client.loop_start()
-    print("Attente connexion...", flush=True)
     time.sleep(2)
     
-    print("Surveillance démarrée", flush=True)
+    print("Surveillance démarrée")
     
     # Boucle principale
+    print("Début boucle principale", flush=True)
     try:
+        compteur = 0
         while True:
+            compteur += 1
+            print(f"Cycle {compteur}", flush=True)
+            
             reponse = envoyer_commande_tcp(adresse_ip, port_tcp, "I30001000000000000")
             
             if reponse:
                 code_etat, nom_etat = analyser_etat_chaudiere(reponse)
                 
                 if code_etat is not None:
-                    print(f"État: {code_etat} - {nom_etat}")
+                    print(f"État: {code_etat} - {nom_etat}", flush=True)
                     client.publish("ungaro/etat/code", str(code_etat), retain=True)
                     client.publish("ungaro/etat/nom", nom_etat, retain=True)
+                else:
+                    print("Réponse invalide", flush=True)
+            else:
+                print("Pas de réponse TCP", flush=True)
             
+            print(f"Attente {intervalle_maj}s...", flush=True)
             time.sleep(intervalle_maj)
             
     except KeyboardInterrupt:
-        print("Arrêt")
+        print("Arrêt", flush=True)
+    except Exception as e:
+        print(f"Erreur boucle: {e}", flush=True)
+        import traceback
+        traceback.print_exc()
     finally:
+        print("Nettoyage final", flush=True)
         client.loop_stop()
         client.disconnect()
 
 if __name__ == "__main__":
-    print("LANCEMENT MAIN", flush=True)
     try:
         main()
     except Exception as e:
-        print(f"Erreur: {e}", flush=True)
-        import traceback
-        traceback.print_exc()
+        print(f"Erreur: {e}")
         time.sleep(10)
