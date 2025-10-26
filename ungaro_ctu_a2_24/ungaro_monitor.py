@@ -118,7 +118,7 @@ def main():
     
     # Configuration client MQTT
     try:
-        client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION1)
+        client = mqtt.Client()
         print("Client MQTT créé")
     except Exception as e:
         print(f"Erreur création client MQTT: {e}")
