@@ -1,0 +1,30 @@
+name: "Ungaro CTU A2 24"
+version: "1.0.0"
+slug: "ungaro_ctu_a2_24"
+description: "Intégration pour chaudière Ungaro CTU A2 24 via TCP"
+url: "https://github.com/Xavier-1971/ha-addons-ungaro-ctu-tiemme/tree/main/ungaro_ctu_a2_24"
+arch:
+  - aarch64
+  - amd64
+  - armhf
+  - armv7
+  - i386
+startup: services
+boot: auto
+init: false
+options:
+  adresse_ip: "192.168.1.16"
+  port_tcp: 8899
+  mqtt_host: "core-mosquitto"
+  mqtt_port: 1883
+  mqtt_user: ""
+  mqtt_password: ""
+  intervalle_maj: 30
+schema:
+  adresse_ip: "str"
+  port_tcp: "int"
+  mqtt_host: "str"
+  mqtt_port: "int"
+  mqtt_user: "str"
+  mqtt_password: "str"
+  intervalle_maj: "int(10,300)"
