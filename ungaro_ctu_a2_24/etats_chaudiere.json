@@ -1,0 +1,15 @@
+{
+  "000": "Eteinte",
+  "001": "Controle Interne", 
+  "030": "Allumage",
+  "031": "Allumage",
+  "032": "Allumage",
+  "033": "Allumage",
+  "005": "Montée en température",
+  "006": "Modulation",
+  "007": "Extinction",
+  "008": "Mode sécurité",
+  "009": "Bloquage",
+  "010": "Récupération",
+  "011": "Standby"
+}

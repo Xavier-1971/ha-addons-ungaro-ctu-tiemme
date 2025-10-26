@@ -5,24 +5,19 @@ import os
 from datetime import datetime
 import paho.mqtt.client as mqtt
 
-# États de la chaudière Ungaro CTU A2 24
-ETATS_CHAUDIERE = {
-    0: "Arrêt",
-    1: "Check Up", 
-    30: "Allumage",
-    31: "Allumage",
-    32: "Allumage", 
-    33: "Allumage",
-    5: "Montée en température",
-    6: "Modulation",
-    7: "Extinction",
-    8: "Sécurité",
-    9: "Bloquée",
-    10: "Récupération",
-    11: "Standby",
-    110: "Passage en arrêt",
-    255: "Passage en marche"
-}
+def charger_etats_chaudiere():
+    """Charge les états depuis le fichier JSON"""
+    try:
+        with open('/app/etats_chaudiere.json', 'r', encoding='utf-8') as f:
+            etats_str = json.load(f)
+            # Convertir les clés string en int pour compatibilité
+            return {int(k): v for k, v in etats_str.items()}
+    except Exception as e:
+        print(f"Erreur chargement états: {e}")
+        return {}
+
+# Chargement des états
+ETATS_CHAUDIERE = charger_etats_chaudiere()
 
 # Informations du device
 DEVICE_INFO = {
@@ -52,15 +47,21 @@ def envoyer_commande_tcp(adresse, port, commande):
 
 def analyser_etat_chaudiere(reponse):
     """Analyse la réponse pour extraire l'état de la chaudière"""
-    if not reponse or not reponse.startswith('J30001000000000'):
+    if not reponse:
         return None, None
     
-    try:
-        code_etat = int(reponse[-3:])
-        nom_etat = ETATS_CHAUDIERE.get(code_etat, f"État inconnu ({code_etat})")
-        return code_etat, nom_etat
-    except ValueError:
-        return None, None
+    reponse_clean = reponse.strip('\x08\r\n')
+    
+    # Format attendu: J30001000000000XXX
+    if reponse_clean.startswith('J30001000000000'):
+        try:
+            code_etat = int(reponse_clean[-3:])
+            nom_etat = ETATS_CHAUDIERE.get(code_etat, "Inconnu")
+            return code_etat, nom_etat
+        except ValueError:
+            return None, None
+    
+    return None, None
 
 def configurer_mqtt_discovery(client):
     """Configure MQTT Discovery pour le capteur d'état"""
@@ -100,23 +101,28 @@ def configurer_mqtt_discovery(client):
     print(f"        homeassistant/sensor/ungaro_etat_nom/config")
 
 def main():
-    # Récupération des variables d'environnement
-    adresse_ip = os.environ.get('ADRESSE_IP', '192.168.1.16')
-    port_tcp = int(os.environ.get('PORT_TCP', '8899'))
-    mqtt_host = os.environ.get('MQTT_HOST', 'core-mosquitto')
-    mqtt_port = int(os.environ.get('MQTT_PORT', '1883'))
-    mqtt_user = os.environ.get('MQTT_USER', '')
-    mqtt_password = os.environ.get('MQTT_PASSWORD', '')
-    intervalle_maj = int(os.environ.get('INTERVALLE_MAJ', '30'))
+    try:
+        # Récupération des variables d'environnement
+        adresse_ip = os.environ.get('ADRESSE_IP', '192.168.1.16')
+        port_tcp = int(os.environ.get('PORT_TCP', '8899'))
+        mqtt_host = os.environ.get('MQTT_HOST', 'core-mosquitto')
+        mqtt_port = int(os.environ.get('MQTT_PORT', '1883'))
+        mqtt_user = os.environ.get('MQTT_USER', '')
+        mqtt_password = os.environ.get('MQTT_PASSWORD', '')
+        intervalle_maj = int(os.environ.get('INTERVALLE_MAJ', '30'))
+        
+        print(f"Configuration Ungaro CTU A2 24:")
+        print(f"  Chaudière: {adresse_ip}:{port_tcp}")
+        print(f"  MQTT: {mqtt_host}:{mqtt_port}")
+        print(f"  Intervalle: {intervalle_maj}s")
+    except Exception as e:
+        print(f"ERREUR lors de la récupération de la configuration: {e}")
+        return
     
-    print(f"Configuration Ungaro CTU A2 24:")
-    print(f"  Chaudière: {adresse_ip}:{port_tcp}")
-    print(f"  MQTT: {mqtt_host}:{mqtt_port}")
-    print(f"  Intervalle: {intervalle_maj}s")
-    
-    # Configuration client MQTT
+    # Configuration client MQTT (comme dans l'ancien code)
     print("Création client MQTT...")
     try:
+        # Nouvelle API VERSION2 (recommandée)
         client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
         print("Client MQTT VERSION2 créé")
     except (AttributeError, ImportError):
@@ -149,20 +155,29 @@ def main():
     else:
         print("Pas d'authentification MQTT")
     
+    # Test de connexion TCP à la chaudière d'abord
+    print(f"Test connexion TCP à la chaudière {adresse_ip}:{port_tcp}...")
+    test_reponse = envoyer_commande_tcp(adresse_ip, port_tcp, "I30001000000000000")
+    if test_reponse:
+        print(f"Connexion chaudière OK: {test_reponse}")
+    else:
+        print("ATTENTION: Impossible de se connecter à la chaudière")
+    
     # Connexion MQTT
     print(f"Tentative connexion MQTT à {mqtt_host}:{mqtt_port}...")
     try:
         client.connect(mqtt_host, mqtt_port, 60)
         print("Connexion MQTT initialisée")
     except Exception as e:
-        print(f"Erreur connexion MQTT: {e}")
+        print(f"ERREUR connexion MQTT: {e}")
         print("Tentative avec localhost...")
         try:
             client.connect('localhost', mqtt_port, 60)
             print("Connexion localhost initialisée")
         except Exception as e2:
-            print(f"Erreur connexion localhost: {e2}")
-            return
+            print(f"ERREUR connexion localhost: {e2}")
+            print("Continuons sans MQTT pour le debug...")
+            # Ne pas retourner, continuer pour tester la chaudière
     
     client.loop_start()
     time.sleep(5)  # Attendre plus longtemps pour la connexion
@@ -170,32 +185,59 @@ def main():
     print("Démarrage surveillance Ungaro CTU A2 24...")
     
     # Boucle principale
+    print("Démarrage de la boucle principale...")
     try:
+        compteur = 0
         while True:
+            compteur += 1
+            print(f"\n--- Cycle {compteur} ---")
+            
             # Interroger l'état de la chaudière
+            print(f"Interrogation chaudière {adresse_ip}:{port_tcp}...")
             reponse = envoyer_commande_tcp(adresse_ip, port_tcp, "I30001000000000000")
             
             if reponse:
+                print(f"Réponse reçue: {reponse}")
                 code_etat, nom_etat = analyser_etat_chaudiere(reponse)
                 
                 if code_etat is not None:
-                    # Publier les états
-                    client.publish("ungaro/etat/code", str(code_etat), retain=True)
-                    client.publish("ungaro/etat/nom", nom_etat, retain=True)
-                    print(f"État chaudière: {code_etat} - {nom_etat}")
+                    print(f"État analysé: {code_etat} - {nom_etat}")
+                    # Publier les états seulement si MQTT fonctionne
+                    try:
+                        client.publish("ungaro/etat/code", str(code_etat), retain=True)
+                        client.publish("ungaro/etat/nom", nom_etat, retain=True)
+                        print(f"État publié sur MQTT")
+                    except Exception as e:
+                        print(f"Erreur publication MQTT: {e}")
                 else:
-                    print("Réponse invalide de la chaudière")
+                    print("ERREUR: Réponse invalide de la chaudière")
             else:
-                print("Pas de réponse de la chaudière")
+                print("ERREUR: Pas de réponse de la chaudière")
             
-            # Attendre avant la prochaine interrogation
+            print(f"Attente {intervalle_maj}s avant prochain cycle...")
             time.sleep(intervalle_maj)
             
     except KeyboardInterrupt:
-        print("Arrêt demandé")
+        print("Arrêt demandé par l'utilisateur")
+    except Exception as e:
+        print(f"ERREUR dans la boucle principale: {e}")
+        import traceback
+        traceback.print_exc()
     finally:
-        client.loop_stop()
-        client.disconnect()
+        print("Nettoyage final...")
+        try:
+            client.loop_stop()
+            client.disconnect()
+        except:
+            pass
 
 if __name__ == "__main__":
-    main()
+    try:
+        print("=== Démarrage Ungaro Monitor ===")
+        main()
+    except Exception as e:
+        print(f"ERREUR FATALE: {e}")
+        import traceback
+        traceback.print_exc()
+        print("Le script va s'arrêter...")
+        time.sleep(10)  # Laisser le temps de voir l'erreur

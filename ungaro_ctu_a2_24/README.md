@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # Ungaro CTU A2 24
 
 Addon Home Assistant pour l'intégration de la chaudière **Ungaro CTU A2 24** via communication TCP.
@@ -9,26 +8,26 @@ Addon Home Assistant pour l'intégration de la chaudière **Ungaro CTU A2 24** v
 - **MQTT Discovery** : Intégration automatique dans Home Assistant
 - **Noms français** : Interface entièrement en français
 - **Configuration simple** : Paramétrage via l'interface HA
+- **États personnalisables** : Fichier de configuration modifiable
 
 ## Capteurs disponibles
 
 ### État Chaudière
 - **État Chaudière (Code)** : Code numérique de l'état
-- **État Chaudière** : Nom explicite de l'état
+- **État Chaudière** : Nom explicite de l'état en français
 
 ### États supportés
-- **000** : Arrêt
-- **001** : Check Up  
+- **000** : Eteinte
+- **001** : Controle Interne
 - **030-033** : Allumage (différentes phases)
 - **005** : Montée en température
 - **006** : Modulation
 - **007** : Extinction
-- **008** : Sécurité
-- **009** : Bloquée
+- **008** : Mode sécurité
+- **009** : Bloquage
 - **010** : Récupération
 - **011** : Standby
-- **110** : Passage en arrêt
-- **255** : Passage en marche
+- **Autres** : Inconnu
 
 ## Configuration
 
@@ -56,10 +55,28 @@ Une fois l'addon démarré, deux capteurs apparaîtront automatiquement dans Hom
 
 Ces capteurs peuvent être utilisés dans vos automatisations, cartes et scripts.
 
+## Personnalisation des états
+
+Les états de la chaudière sont définis dans le fichier `etats_chaudiere.json`. Pour ajouter de nouveaux états :
+
+1. Accédez au conteneur de l'addon
+2. Modifiez `/app/etats_chaudiere.json`
+3. Redémarrez l'addon
+
+Exemple :
+```json
+{
+  "000": "Eteinte",
+  "042": "Nouvel état découvert"
+}
+```
+
+## Protocole TCP
+
+- **Commande envoyée** : `I30001000000000000`
+- **Réponse attendue** : `J30001000000000XXX` (XXX = code état)
+- **Port par défaut** : 8899
+
 ## Version
 
-**1.0.0** - Version initiale avec surveillance d'état de base
-=======
-# ha-addons-ungaro-ctu-tiemme
-Home Assistant addons pour chaudière Ungaro CTU A2 24 avec une carte de commande Tiemme SYS 
->>>>>>> a62272f58675402ab64485c767f397f402329674
+**1.0.4** - États personnalisables via fichier JSON
