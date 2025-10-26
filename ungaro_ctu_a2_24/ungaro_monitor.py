@@ -124,6 +124,8 @@ def main():
         print(f"Erreur création client MQTT: {e}")
         return
     
+    print("Définition callbacks...")
+    
     def on_connect(client, userdata, flags, rc, properties=None):
         if rc == 0:
             print("MQTT connecté")
@@ -134,18 +136,26 @@ def main():
     def on_publish(client, userdata, mid, reason_code=None, properties=None):
         pass  # Silencieux
     
+    print("Attribution callbacks...")
     client.on_connect = on_connect
     client.on_publish = on_publish
+    print("Callbacks attribués")
     
     # Authentification MQTT si nécessaire
+    print("Configuration auth...")
     if mqtt_user and mqtt_password:
         client.username_pw_set(mqtt_user, mqtt_password)
+        print("Auth configurée")
+    else:
+        print("Pas d'auth")
     
     # Test de connexion TCP à la chaudière
+    print("Test TCP...")
     test_reponse = envoyer_commande_tcp(adresse_ip, port_tcp, "I30001000000000000")
     if not test_reponse:
         print("ERREUR: Chaudière inaccessible")
         return
+    print("TCP OK")
     
     # Connexion MQTT
     try:
