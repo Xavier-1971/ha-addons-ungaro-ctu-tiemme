@@ -5,6 +5,8 @@ import os
 from datetime import datetime
 import paho.mqtt.client as mqtt
 
+print("SCRIPT PYTHON DEMARRE", flush=True)
+
 def charger_etats_chaudiere():
     """Charge les états depuis le fichier JSON"""
     try:
@@ -118,19 +120,19 @@ def main():
     
     # Configuration client MQTT
     try:
-        client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+        client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION1)
     except Exception as e:
         print(f"Erreur création client MQTT: {e}")
         return
     
-    def on_connect(client, userdata, flags, reason_code, properties):
-        if reason_code.is_failure:
-            print(f"Erreur MQTT: {reason_code}")
-        else:
+    def on_connect(client, userdata, flags, rc, properties=None):
+        if rc == 0:
             print("MQTT connecté")
             configurer_mqtt_discovery(client)
+        else:
+            print(f"Erreur MQTT: {rc}")
     
-    def on_publish(client, userdata, mid, reason_code, properties):
+    def on_publish(client, userdata, mid, reason_code=None, properties=None):
         pass  # Silencieux
     
     client.on_connect = on_connect
