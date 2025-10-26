@@ -159,38 +159,23 @@ def main():
     print("Surveillance démarrée")
     
     # Boucle principale
-    print("Début boucle principale", flush=True)
     try:
-        compteur = 0
         while True:
-            compteur += 1
-            print(f"Cycle {compteur}", flush=True)
-            
             reponse = envoyer_commande_tcp(adresse_ip, port_tcp, "I30001000000000000")
             
             if reponse:
                 code_etat, nom_etat = analyser_etat_chaudiere(reponse)
                 
                 if code_etat is not None:
-                    print(f"État: {code_etat} - {nom_etat}", flush=True)
+                    print(f"État: {code_etat} - {nom_etat}")
                     client.publish("ungaro/etat/code", str(code_etat), retain=True)
                     client.publish("ungaro/etat/nom", nom_etat, retain=True)
-                else:
-                    print("Réponse invalide", flush=True)
-            else:
-                print("Pas de réponse TCP", flush=True)
             
-            print(f"Attente {intervalle_maj}s...", flush=True)
             time.sleep(intervalle_maj)
             
     except KeyboardInterrupt:
-        print("Arrêt", flush=True)
-    except Exception as e:
-        print(f"Erreur boucle: {e}", flush=True)
-        import traceback
-        traceback.print_exc()
+        print("Arrêt")
     finally:
-        print("Nettoyage final", flush=True)
         client.loop_stop()
         client.disconnect()
 
