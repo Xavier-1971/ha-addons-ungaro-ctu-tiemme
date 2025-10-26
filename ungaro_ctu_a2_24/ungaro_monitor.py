@@ -23,15 +23,19 @@ def charger_etats_chaudiere():
         return {}
 
 # Chargement des états
+print("CHARGEMENT ETATS...", flush=True)
 ETATS_CHAUDIERE = charger_etats_chaudiere()
+print(f"ETATS CHARGES: {len(ETATS_CHAUDIERE)} éléments", flush=True)
 
 # Informations du device
+print("CREATION DEVICE_INFO...", flush=True)
 DEVICE_INFO = {
     "identifiers": ["ungaro_ctu_a2_24"],
     "name": "Ungaro CTU A2 24",
     "manufacturer": "Ungaro",
     "model": "CTU A2 24"
 }
+print("DEVICE_INFO OK", flush=True)
 
 def envoyer_commande_tcp(adresse, port, commande):
     """Envoie une commande TCP à la chaudière"""
