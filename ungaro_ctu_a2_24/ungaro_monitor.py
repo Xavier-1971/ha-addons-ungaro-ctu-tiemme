@@ -108,7 +108,9 @@ def configurer_mqtt_discovery(client):
     print(f"        homeassistant/sensor/ungaro_etat_nom/config")
 
 def main():
+    print("DEBUT FONCTION MAIN", flush=True)
     try:
+        print("Récupération variables d'environnement...", flush=True)
         # Récupération des variables d'environnement
         adresse_ip = os.environ.get('ADRESSE_IP', '192.168.1.16')
         port_tcp = int(os.environ.get('PORT_TCP', '8899'))
@@ -118,67 +120,71 @@ def main():
         mqtt_password = os.environ.get('MQTT_PASSWORD', '')
         intervalle_maj = int(os.environ.get('INTERVALLE_MAJ', '30'))
         
-        print(f"Configuration Ungaro CTU A2 24:")
-        print(f"  Chaudière: {adresse_ip}:{port_tcp}")
-        print(f"  MQTT: {mqtt_host}:{mqtt_port}")
-        print(f"  Intervalle: {intervalle_maj}s")
+        print(f"Configuration Ungaro CTU A2 24:", flush=True)
+        print(f"  Chaudière: {adresse_ip}:{port_tcp}", flush=True)
+        print(f"  MQTT: {mqtt_host}:{mqtt_port}", flush=True)
+        print(f"  Intervalle: {intervalle_maj}s", flush=True)
     except Exception as e:
-        print(f"ERREUR lors de la récupération de la configuration: {e}")
+        print(f"ERREUR lors de la récupération de la configuration: {e}", flush=True)
         return
     
     # Configuration client MQTT
-    print("Création client MQTT...")
+    print("Création client MQTT...", flush=True)
     try:
         client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION1)
-        print("Client MQTT créé")
+        print("Client MQTT créé", flush=True)
     except Exception as e:
-        print(f"ERREUR création client MQTT: {e}")
+        print(f"ERREUR création client MQTT: {e}", flush=True)
         return
     
+    print("Configuration callbacks MQTT...", flush=True)
+    
     def on_connect(client, userdata, flags, rc, properties=None):
-        print(f"MQTT connecté: code {rc}")
+        print(f"MQTT connecté: code {rc}", flush=True)
         if rc == 0:
-            print("Connexion MQTT réussie")
+            print("Connexion MQTT réussie", flush=True)
             # Configuration MQTT Discovery après connexion
             configurer_mqtt_discovery(client)
         else:
-            print(f"Échec connexion MQTT: {rc}")
+            print(f"Échec connexion MQTT: {rc}", flush=True)
     
     def on_publish(client, userdata, mid, reason_code=None, properties=None):
-        print(f"Message publié: {mid}")
+        print(f"Message publié: {mid}", flush=True)
     
     client.on_connect = on_connect
     client.on_publish = on_publish
+    print("Callbacks configurés", flush=True)
     
     # Authentification MQTT si nécessaire
+    print("Configuration authentification MQTT...", flush=True)
     if mqtt_user and mqtt_password:
-        print(f"Configuration auth MQTT: {mqtt_user}")
+        print(f"Configuration auth MQTT: {mqtt_user}", flush=True)
         client.username_pw_set(mqtt_user, mqtt_password)
     else:
-        print("Pas d'authentification MQTT")
+        print("Pas d'authentification MQTT", flush=True)
     
     # Test de connexion TCP à la chaudière d'abord
-    print(f"Test connexion TCP à la chaudière {adresse_ip}:{port_tcp}...")
+    print(f"Test connexion TCP à la chaudière {adresse_ip}:{port_tcp}...", flush=True)
     test_reponse = envoyer_commande_tcp(adresse_ip, port_tcp, "I30001000000000000")
     if test_reponse:
-        print(f"Connexion chaudière OK: {test_reponse}")
+        print(f"Connexion chaudière OK: {test_reponse}", flush=True)
     else:
-        print("ATTENTION: Impossible de se connecter à la chaudière")
+        print("ATTENTION: Impossible de se connecter à la chaudière", flush=True)
     
     # Connexion MQTT
-    print(f"Tentative connexion MQTT à {mqtt_host}:{mqtt_port}...")
+    print(f"Tentative connexion MQTT à {mqtt_host}:{mqtt_port}...", flush=True)
     try:
         client.connect(mqtt_host, mqtt_port, 60)
-        print("Connexion MQTT initialisée")
+        print("Connexion MQTT initialisée", flush=True)
     except Exception as e:
-        print(f"ERREUR connexion MQTT: {e}")
-        print("Tentative avec localhost...")
+        print(f"ERREUR connexion MQTT: {e}", flush=True)
+        print("Tentative avec localhost...", flush=True)
         try:
             client.connect('localhost', mqtt_port, 60)
-            print("Connexion localhost initialisée")
+            print("Connexion localhost initialisée", flush=True)
         except Exception as e2:
-            print(f"ERREUR connexion localhost: {e2}")
-            print("Continuons sans MQTT pour le debug...")
+            print(f"ERREUR connexion localhost: {e2}", flush=True)
+            print("Continuons sans MQTT pour le debug...", flush=True)
             # Ne pas retourner, continuer pour tester la chaudière
     
     client.loop_start()
