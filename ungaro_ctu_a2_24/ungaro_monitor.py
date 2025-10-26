@@ -1,13 +1,27 @@
+import asyncio
 import socket
-import time
 import json
 import os
 from datetime import datetime
-import paho.mqtt.client as mqtt
-import warnings
+import logging
 
-# Supprimer les warnings de dépréciation MQTT
-warnings.filterwarnings("ignore", category=DeprecationWarning)
+# Gestion des versions MQTT comme dans les addons officiels
+mqtt_version = 'old'
+try:
+    from asyncio_mqtt import Client as MQTTClient
+except ImportError:
+    try:
+        from aiomqtt import Client as MQTTClient
+        mqtt_version = 'new'
+    except ImportError:
+        # Fallback vers paho-mqtt classique
+        import paho.mqtt.client as mqtt
+        MQTTClient = None
+        mqtt_version = 'paho'
+
+# Configuration du logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 def charger_etats_chaudiere():
     """Charge les états depuis le fichier JSON"""
@@ -31,22 +45,31 @@ DEVICE_INFO = {
     "model": "CTU A2 24"
 }
 
-def envoyer_commande_tcp(adresse, port, commande):
-    """Envoie une commande TCP à la chaudière"""
+async def envoyer_commande_tcp(adresse, port, commande):
+    """Envoie une commande TCP à la chaudière de manière asynchrone"""
     try:
-        with socket.create_connection((adresse, port), timeout=5) as sock:
-            # Format: 08 + commande_hex + 0d
-            commande_hex = ''.join(f"{ord(c):02x}" for c in commande)
-            trame_complete = f"08{commande_hex}0d"
-            sock.sendall(bytes.fromhex(trame_complete))
+        reader, writer = await asyncio.wait_for(
+            asyncio.open_connection(adresse, port), timeout=5
+        )
+        
+        # Format: 08 + commande_hex + 0d
+        commande_hex = ''.join(f"{ord(c):02x}" for c in commande)
+        trame_complete = f"08{commande_hex}0d"
+        
+        writer.write(bytes.fromhex(trame_complete))
+        await writer.drain()
+        
+        reponse = await asyncio.wait_for(reader.read(1024), timeout=5)
+        writer.close()
+        await writer.wait_closed()
+        
+        if reponse:
+            reponse_str = reponse.decode(errors='ignore').strip('\x08\r\n')
+            logger.info(f"TCP {adresse}:{port} - {commande} -> {reponse_str}")
+            return reponse_str
             
-            reponse = sock.recv(1024)
-            if reponse:
-                reponse_str = reponse.decode(errors='ignore').strip('\x08\r\n')
-                print(f"[{datetime.now()}] Commande: {commande} -> Réponse: {reponse_str}")
-                return reponse_str
     except Exception as e:
-        print(f"Erreur TCP: {e}")
+        logger.error(f"Erreur TCP {adresse}:{port}: {e}")
         return None
 
 def analyser_etat_chaudiere(reponse):
@@ -67,7 +90,7 @@ def analyser_etat_chaudiere(reponse):
     
     return None, None
 
-def configurer_mqtt_discovery(client):
+async def configurer_mqtt_discovery(client):
     """Configure MQTT Discovery pour le capteur d'état"""
     
     # Capteur état numérique
@@ -88,23 +111,52 @@ def configurer_mqtt_discovery(client):
         "device": DEVICE_INFO
     }
     
-    # Publication des configurations
-    print("Publication config MQTT Discovery...")
-    result1 = client.publish("homeassistant/sensor/ungaro_etat_code/config", json.dumps(config_etat_num), retain=True)
-    result2 = client.publish("homeassistant/sensor/ungaro_etat_nom/config", json.dumps(config_etat_nom), retain=True)
-    print(f"Config publiée - Code: {result1.rc}, Nom: {result2.rc}")
-    
-    # États initiaux
-    print("Publication états initiaux...")
-    client.publish("ungaro/etat/code", "0", retain=True)
-    client.publish("ungaro/etat/nom", "Arrêt", retain=True)
-    
-    print("MQTT Discovery configuré pour Ungaro CTU A2 24")
-    print(f"Device ID: {DEVICE_INFO['identifiers'][0]}")
-    print(f"Topics: homeassistant/sensor/ungaro_etat_code/config")
-    print(f"        homeassistant/sensor/ungaro_etat_nom/config")
+    try:
+        # Publication des configurations
+        await client.publish("homeassistant/sensor/ungaro_etat_code/config", 
+                           json.dumps(config_etat_num), retain=True)
+        await client.publish("homeassistant/sensor/ungaro_etat_nom/config", 
+                           json.dumps(config_etat_nom), retain=True)
+        
+        # États initiaux
+        await client.publish("ungaro/etat/code", "0", retain=True)
+        await client.publish("ungaro/etat/nom", "Eteinte", retain=True)
+        
+        logger.info("MQTT Discovery configuré")
+        
+    except Exception as e:
+        logger.error(f"Erreur configuration MQTT Discovery: {e}")
 
-def main():
+async def publier_etat_mqtt(client, code_etat, nom_etat):
+    """Publie l'état sur MQTT de manière asynchrone"""
+    try:
+        await client.publish("ungaro/etat/code", str(code_etat), retain=True)
+        await client.publish("ungaro/etat/nom", nom_etat, retain=True)
+    except Exception as e:
+        logger.error(f"Erreur publication MQTT: {e}")
+
+async def surveiller_chaudiere(adresse_ip, port_tcp, intervalle_maj):
+    """Boucle de surveillance de la chaudière"""
+    while True:
+        try:
+            reponse = await envoyer_commande_tcp(adresse_ip, port_tcp, "I30001000000000000")
+            
+            if reponse:
+                code_etat, nom_etat = analyser_etat_chaudiere(reponse)
+                if code_etat is not None:
+                    logger.info(f"État: {code_etat} - {nom_etat}")
+                    return code_etat, nom_etat
+                else:
+                    logger.warning("Réponse chaudière invalide")
+            else:
+                logger.error("Chaudière non accessible")
+                
+        except Exception as e:
+            logger.error(f"Erreur surveillance: {e}")
+            
+        await asyncio.sleep(intervalle_maj)
+
+async def main():
     try:
         # Récupération des variables d'environnement
         adresse_ip = os.environ.get('ADRESSE_IP', '192.168.1.16')
@@ -115,116 +167,57 @@ def main():
         mqtt_password = os.environ.get('MQTT_PASSWORD', '')
         intervalle_maj = int(os.environ.get('INTERVALLE_MAJ', '30'))
         
-        print(f"Ungaro CTU A2 24 - Surveillance {adresse_ip}:{port_tcp}")
+        logger.info(f"Ungaro CTU A2 24 - Surveillance {adresse_ip}:{port_tcp}")
+        logger.info(f"Version MQTT: {mqtt_version}")
+        
     except Exception as e:
-        print(f"Erreur configuration: {e}")
+        logger.error(f"Erreur configuration: {e}")
         return
     
-    # Configuration client MQTT avec reconnexion automatique
-    try:
-        client = mqtt.Client()
-        client.reconnect_delay_set(min_delay=1, max_delay=60)
-    except Exception as e:
-        print(f"Erreur création client MQTT: {e}")
-        return
-    
-    # Variables globales pour gérer l'état MQTT
-    mqtt_connected = False
-    
-    def on_connect(client, userdata, flags, rc, properties=None):
-        nonlocal mqtt_connected
-        if rc == 0:
-            print("MQTT connecté - Configuration découverte...")
-            mqtt_connected = True
-            configurer_mqtt_discovery(client)
-        else:
-            print(f"Erreur connexion MQTT: {rc}")
-            mqtt_connected = False
-    
-    def on_disconnect(client, userdata, rc):
-        nonlocal mqtt_connected
-        mqtt_connected = False
-        if rc != 0:
-            print("Connexion MQTT perdue - reconnexion automatique...")
-    
-    def on_publish(client, userdata, mid, reason_code=None, properties=None):
-        pass  # Silencieux
-    
-    client.on_connect = on_connect
-    client.on_disconnect = on_disconnect
-    client.on_publish = on_publish
-    
-    # Authentification MQTT si nécessaire
-    if mqtt_user and mqtt_password:
-        client.username_pw_set(mqtt_user, mqtt_password)
-    
-    # Test de connexion TCP à la chaudière
-    test_reponse = envoyer_commande_tcp(adresse_ip, port_tcp, "I30001000000000000")
+    # Test initial de la chaudière
+    test_reponse = await envoyer_commande_tcp(adresse_ip, port_tcp, "I30001000000000000")
     if not test_reponse:
-        print("ERREUR: Chaudière inaccessible - vérifiez l'adresse IP et le port")
+        logger.error("Chaudière inaccessible - vérifiez l'adresse IP et le port")
         return
     
-    # Connexion MQTT avec fallback
-    try:
-        client.connect(mqtt_host, mqtt_port, 60)
-    except Exception as e:
-        print(f"Erreur connexion MQTT {mqtt_host}: {e}")
+    # Gestion MQTT selon la version disponible
+    if MQTTClient:
+        # Utilisation d'asyncio-mqtt ou aiomqtt
         try:
-            client.connect('localhost', mqtt_port, 60)
-            print("Connecté à MQTT via localhost")
-        except Exception as e2:
-            print(f"Erreur connexion localhost: {e2}")
-            print("Fonctionnement sans MQTT - les états ne seront pas publiés")
-    
-    # Démarrage de la boucle MQTT en arrière-plan
-    client.loop_start()
-    time.sleep(2)  # Attendre la connexion initiale
-    
-    print("Surveillance démarrée - Intervalle: {}s".format(intervalle_maj))
-    
-    # Boucle principale
-    try:
-        while True:
-            reponse = envoyer_commande_tcp(adresse_ip, port_tcp, "I30001000000000000")
-            
-            if reponse:
-                code_etat, nom_etat = analyser_etat_chaudiere(reponse)
+            async with MQTTClient(hostname=mqtt_host, port=mqtt_port, 
+                                username=mqtt_user if mqtt_user else None,
+                                password=mqtt_password if mqtt_password else None) as client:
                 
-                if code_etat is not None:
-                    print(f"État chaudière: {code_etat} - {nom_etat}")
+                logger.info("MQTT connecté avec asyncio")
+                await configurer_mqtt_discovery(client)
+                
+                # Boucle principale
+                while True:
+                    reponse = await envoyer_commande_tcp(adresse_ip, port_tcp, "I30001000000000000")
                     
-                    # Publier seulement si MQTT est connecté
-                    if mqtt_connected:
-                        try:
-                            client.publish("ungaro/etat/code", str(code_etat), retain=True)
-                            client.publish("ungaro/etat/nom", nom_etat, retain=True)
-                        except Exception as e:
-                            print(f"Erreur publication MQTT: {e}")
-                else:
-                    print("Réponse chaudière invalide")
-            else:
-                print("Chaudière non accessible")
-            
-            time.sleep(intervalle_maj)
-            
-    except KeyboardInterrupt:
-        print("Arrêt demandé")
-    except Exception as e:
-        print(f"Erreur: {e}")
-        import traceback
-        traceback.print_exc()
-    finally:
-        try:
-            client.loop_stop()
-            client.disconnect()
-        except:
-            pass
+                    if reponse:
+                        code_etat, nom_etat = analyser_etat_chaudiere(reponse)
+                        if code_etat is not None:
+                            logger.info(f"État: {code_etat} - {nom_etat}")
+                            await publier_etat_mqtt(client, code_etat, nom_etat)
+                    
+                    await asyncio.sleep(intervalle_maj)
+                    
+        except Exception as e:
+            logger.error(f"Erreur MQTT asyncio: {e}")
+            # Fallback: surveillance sans MQTT
+            await surveiller_chaudiere(adresse_ip, port_tcp, intervalle_maj)
+    else:
+        # Pas de client MQTT asyncio disponible
+        logger.warning("Fonctionnement sans MQTT - bibliothèque asyncio-mqtt non disponible")
+        await surveiller_chaudiere(adresse_ip, port_tcp, intervalle_maj)
 
 if __name__ == "__main__":
     try:
-        main()
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        logger.info("Arrêt demandé")
     except Exception as e:
-        print(f"Erreur fatale: {e}")
+        logger.error(f"Erreur fatale: {e}")
         import traceback
         traceback.print_exc()
-        time.sleep(10)
