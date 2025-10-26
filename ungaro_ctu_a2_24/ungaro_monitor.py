@@ -8,6 +8,9 @@ from datetime import datetime
 
 print("IMPORTS TERMINES", flush=True)
 
+import warnings
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+
 import paho.mqtt.client as mqtt
 print("IMPORT MQTT OK", flush=True)
 
@@ -128,7 +131,10 @@ def main():
     
     # Configuration client MQTT
     try:
-        client = mqtt.Client()
+        try:
+            client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+        except:
+            client = mqtt.Client()
         print("Client MQTT créé")
     except Exception as e:
         print(f"Erreur création client MQTT: {e}")
@@ -208,7 +214,10 @@ if __name__ == "__main__":
         print("Import OK")
         
         print("Création client MQTT...")
-        client_test = mqtt_test.Client()
+        try:
+            client_test = mqtt_test.Client(mqtt.CallbackAPIVersion.VERSION2)
+        except:
+            client_test = mqtt_test.Client()
         print("Client créé avec succès !")
         
         print("Lancement main()...")
