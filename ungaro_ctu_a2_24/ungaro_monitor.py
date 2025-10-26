@@ -123,14 +123,14 @@ def main():
         print(f"Erreur création client MQTT: {e}")
         return
     
-    def on_connect(client, userdata, flags, rc, properties=None):
-        if rc == 0:
+    def on_connect(client, userdata, flags, reason_code, properties):
+        if reason_code.is_failure:
+            print(f"Erreur MQTT: {reason_code}")
+        else:
             print("MQTT connecté")
             configurer_mqtt_discovery(client)
-        else:
-            print(f"Erreur MQTT: {rc}")
     
-    def on_publish(client, userdata, mid, reason_code=None, properties=None):
+    def on_publish(client, userdata, mid, reason_code, properties):
         pass  # Silencieux
     
     client.on_connect = on_connect
