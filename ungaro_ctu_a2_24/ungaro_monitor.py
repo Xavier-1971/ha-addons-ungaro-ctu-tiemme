@@ -1,9 +1,15 @@
+print("DEBUT CHARGEMENT SCRIPT", flush=True)
+
 import socket
 import time
 import json
 import os
 from datetime import datetime
+
+print("IMPORTS TERMINES", flush=True)
+
 import paho.mqtt.client as mqtt
+print("IMPORT MQTT OK", flush=True)
 
 def charger_etats_chaudiere():
     """Charge les états depuis le fichier JSON"""
