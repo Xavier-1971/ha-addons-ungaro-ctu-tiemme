@@ -126,10 +126,10 @@ def main():
         print(f"ERREUR lors de la récupération de la configuration: {e}")
         return
     
-    # Configuration client MQTT - version simple qui fonctionne
+    # Configuration client MQTT
     print("Création client MQTT...")
     try:
-        client = mqtt.Client()
+        client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION1)
         print("Client MQTT créé")
     except Exception as e:
         print(f"ERREUR création client MQTT: {e}")
