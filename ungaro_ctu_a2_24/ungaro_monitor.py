@@ -126,19 +126,14 @@ def main():
         print(f"ERREUR lors de la récupération de la configuration: {e}")
         return
     
-    # Configuration client MQTT (comme dans l'ancien code)
+    # Configuration client MQTT - version simple qui fonctionne
     print("Création client MQTT...")
     try:
-        # Nouvelle API VERSION2 (recommandée)
-        client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
-        print("Client MQTT VERSION2 créé")
-    except (AttributeError, ImportError):
-        try:
-            client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION1)
-            print("Client MQTT VERSION1 créé")
-        except (AttributeError, ImportError):
-            client = mqtt.Client()
-            print("Client MQTT legacy créé")
+        client = mqtt.Client()
+        print("Client MQTT créé")
+    except Exception as e:
+        print(f"ERREUR création client MQTT: {e}")
+        return
     
     def on_connect(client, userdata, flags, rc, properties=None):
         print(f"MQTT connecté: code {rc}")
@@ -149,7 +144,7 @@ def main():
         else:
             print(f"Échec connexion MQTT: {rc}")
     
-    def on_publish(client, userdata, mid):
+    def on_publish(client, userdata, mid, reason_code=None, properties=None):
         print(f"Message publié: {mid}")
     
     client.on_connect = on_connect
