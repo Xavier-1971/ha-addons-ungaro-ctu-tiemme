@@ -25,8 +25,20 @@ def charger_etats_chaudiere():
         print(f"Erreur chargement états: {e}")
         return {}
 
-# Chargement des états
+def charger_erreurs_chaudiere():
+    """Charge les erreurs depuis le fichier JSON"""
+    try:
+        with open('/app/erreurs_chaudiere.json', 'r', encoding='utf-8') as f:
+            erreurs_str = json.load(f)
+            # Convertir les clés string en int pour compatibilité
+            return {int(k): v for k, v in erreurs_str.items()}
+    except Exception as e:
+        print(f"Erreur chargement erreurs: {e}")
+        return {}
+
+# Chargement des états et erreurs
 ETATS_CHAUDIERE = charger_etats_chaudiere()
+ERREURS_CHAUDIERE = charger_erreurs_chaudiere()
 
 # Informations du device
 DEVICE_INFO = {
@@ -72,6 +84,24 @@ def analyser_etat_chaudiere(reponse):
     
     return None, None
 
+def analyser_erreur_chaudiere(reponse):
+    """Analyse la réponse pour extraire l'erreur de la chaudière"""
+    if not reponse:
+        return None, None
+    
+    reponse_clean = reponse.strip('\x08\r\n')
+    
+    # Format attendu: J300020000000000XX
+    if reponse_clean.startswith('J300020000000000'):
+        try:
+            code_erreur = int(reponse_clean[-2:])  # 2 derniers caractères
+            nom_erreur = ERREURS_CHAUDIERE.get(code_erreur, "Inconnu")
+            return code_erreur, nom_erreur
+        except ValueError:
+            return None, None
+    
+    return None, None
+
 def publier_mqtt_discovery(client):
     """Publie la configuration MQTT Discovery"""
     
@@ -93,16 +123,40 @@ def publier_mqtt_discovery(client):
         "device": DEVICE_INFO
     }
     
+    # Capteur erreur numérique
+    config_erreur_num = {
+        "name": "Erreur Chaudière (Code)",
+        "state_topic": "ungaro/erreur/code",
+        "unique_id": "ungaro_erreur_code",
+        "icon": "mdi:alert-circle",
+        "device": DEVICE_INFO
+    }
+    
+    # Capteur erreur textuel
+    config_erreur_nom = {
+        "name": "Erreur Chaudière",
+        "state_topic": "ungaro/erreur/nom", 
+        "unique_id": "ungaro_erreur_nom",
+        "icon": "mdi:alert-circle-outline",
+        "device": DEVICE_INFO
+    }
+    
     try:
         # Publication des configurations
         client.publish("homeassistant/sensor/ungaro_etat_code/config", 
                       json.dumps(config_etat_num), retain=True)
         client.publish("homeassistant/sensor/ungaro_etat_nom/config", 
                       json.dumps(config_etat_nom), retain=True)
+        client.publish("homeassistant/sensor/ungaro_erreur_code/config", 
+                      json.dumps(config_erreur_num), retain=True)
+        client.publish("homeassistant/sensor/ungaro_erreur_nom/config", 
+                      json.dumps(config_erreur_nom), retain=True)
         
         # États initiaux
         client.publish("ungaro/etat/code", "0", retain=True)
         client.publish("ungaro/etat/nom", "Eteinte", retain=True)
+        client.publish("ungaro/erreur/code", "0", retain=True)
+        client.publish("ungaro/erreur/nom", "Non", retain=True)
         
         logger.info("MQTT Discovery configuré")
         
@@ -228,10 +282,11 @@ def main():
     # Boucle principale
     try:
         while True:
-            reponse = envoyer_commande_tcp(adresse_ip, port_tcp, "I30001000000000000")
+            # Interroger l'état de la chaudière
+            reponse_etat = envoyer_commande_tcp(adresse_ip, port_tcp, "I30001000000000000")
             
-            if reponse:
-                code_etat, nom_etat = analyser_etat_chaudiere(reponse)
+            if reponse_etat:
+                code_etat, nom_etat = analyser_etat_chaudiere(reponse_etat)
                 
                 if code_etat is not None:
                     logger.info(f"État chaudière: {code_etat} - {nom_etat}")
@@ -242,11 +297,28 @@ def main():
                             client.publish("ungaro/etat/code", str(code_etat), retain=True)
                             client.publish("ungaro/etat/nom", nom_etat, retain=True)
                         except Exception as e:
-                            logger.error(f"Erreur publication MQTT: {e}")
-                else:
-                    logger.warning("Réponse chaudière invalide")
-            else:
-                logger.error("Chaudière non accessible")
+                            logger.error(f"Erreur publication MQTT état: {e}")
+            
+            # Petite pause entre les requêtes
+            time.sleep(1)
+            
+            # Interroger les erreurs de la chaudière
+            reponse_erreur = envoyer_commande_tcp(adresse_ip, port_tcp, "I30002000000000000")
+            
+            if reponse_erreur:
+                code_erreur, nom_erreur = analyser_erreur_chaudiere(reponse_erreur)
+                
+                if code_erreur is not None:
+                    if code_erreur != 0:  # Afficher seulement si erreur
+                        logger.warning(f"Erreur chaudière: {code_erreur} - {nom_erreur}")
+                    
+                    # Publier seulement si MQTT est connecté
+                    if mqtt_connected:
+                        try:
+                            client.publish("ungaro/erreur/code", str(code_erreur), retain=True)
+                            client.publish("ungaro/erreur/nom", nom_erreur, retain=True)
+                        except Exception as e:
+                            logger.error(f"Erreur publication MQTT erreur: {e}")
             
             time.sleep(intervalle_maj)
             
