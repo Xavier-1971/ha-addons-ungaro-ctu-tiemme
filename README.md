@@ -1,6 +1,6 @@
 # Home Assistant Add-ons: Ungaro CTU Tiemme
 
-Dépôt d'addons Home Assistant pour les chaudières Ungaro CTU et Tiemme.
+Dépôt d'addons Home Assistant pour les chaudières Ungaro CTU equipée d'une carte Tiemme.
 
 ## Add-ons disponibles
 
@@ -68,4 +68,4 @@ Ces capteurs peuvent être utilisés dans vos automatisations, cartes et scripts
 
 ## Support
 
-Pour toute question ou problème, ouvrez une issue sur GitHub.
+Pour toute question ou problème, ouvrez une issue sur GitHub. dépot fonctionnel à l'heur actuel, mais non maintenu. necessite un bridge ethernet <->rs232
