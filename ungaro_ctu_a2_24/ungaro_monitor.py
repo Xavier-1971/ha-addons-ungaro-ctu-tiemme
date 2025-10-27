@@ -312,6 +312,15 @@ def publier_mqtt_discovery(client):
         "device": DEVICE_INFO
     }
     
+    # Bouton RAZ erreur
+    config_bouton_raz = {
+        "name": "RAZ Code Erreur",
+        "command_topic": "ungaro/commande/raz_erreur",
+        "unique_id": "ungaro_bouton_raz_erreur",
+        "icon": "mdi:alert-remove",
+        "device": DEVICE_INFO
+    }
+    
     try:
         # Publication des configurations
         client.publish("homeassistant/sensor/ungaro_etat_code/config", 
@@ -338,6 +347,8 @@ def publier_mqtt_discovery(client):
                       json.dumps(config_bouton_marche), retain=True)
         client.publish("homeassistant/button/ungaro_bouton_arret/config", 
                       json.dumps(config_bouton_arret), retain=True)
+        client.publish("homeassistant/button/ungaro_bouton_raz_erreur/config", 
+                      json.dumps(config_bouton_raz), retain=True)
         
         # États initiaux
         client.publish("ungaro/etat/code", "0", retain=True)
@@ -370,6 +381,7 @@ def on_connect(client, userdata, flags, rc):
         client.subscribe("ungaro/temperature/consigne_eau/set")
         client.subscribe("ungaro/commande/marche")
         client.subscribe("ungaro/commande/arret")
+        client.subscribe("ungaro/commande/raz_erreur")
         logger.info("Abonnement aux topics de contrôle")
         # Publier la configuration Discovery
         publier_mqtt_discovery(client)
@@ -434,6 +446,17 @@ def on_message(client, userdata, msg):
             logger.info("Chaudière arrêtée")
         else:
             logger.error(f"Erreur arrêt: {reponse}")
+    elif msg.topic == "ungaro/commande/raz_erreur":
+        # Commande de RAZ code erreur
+        adresse_ip = os.environ.get('ADRESSE_IP', '192.168.1.16')
+        port_tcp = int(os.environ.get('PORT_TCP', '8899'))
+        
+        reponse = envoyer_commande_tcp(adresse_ip, port_tcp, "J30255000000000001")
+        
+        if reponse and reponse.startswith('I30255000000000'):
+            logger.info("RAZ code erreur effectuée")
+        else:
+            logger.error(f"Erreur RAZ code erreur: {reponse}")
 
 def on_log(client, userdata, level, buf):
     logger.debug(buf)
@@ -450,6 +473,7 @@ def reconnect_to_mqtt():
             client.subscribe("ungaro/temperature/consigne_eau/set")
             client.subscribe("ungaro/commande/marche")
             client.subscribe("ungaro/commande/arret")
+            client.subscribe("ungaro/commande/raz_erreur")
             logger.info("Reconnexion réussie, réabonnement aux topics.")
             mqtt_connected = True
             break  

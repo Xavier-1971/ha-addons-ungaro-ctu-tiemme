@@ -1,5 +1,5 @@
 name: "Ungaro CTU A2 24"
-version: "3.0.0"
+version: "3.1.0"
 slug: "ungaro_ctu_a2_24"
 description: "Intégration pour chaudière Ungaro CTU A2 24 via TCP"
 url: "https://github.com/Xavier-1971/ha-addons-ungaro-ctu-tiemme/tree/main/ungaro_ctu_a2_24"
