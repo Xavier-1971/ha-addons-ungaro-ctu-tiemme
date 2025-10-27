@@ -102,6 +102,91 @@ def analyser_erreur_chaudiere(reponse):
     
     return None, None
 
+def analyser_temperature_fumee(reponse):
+    """Analyse la réponse pour extraire la température de fumée"""
+    if not reponse:
+        return None
+    
+    reponse_clean = reponse.strip('\x08\r\n')
+    
+    # Format attendu: J30005000000000XXX
+    if reponse_clean.startswith('J30005000000000'):
+        try:
+            temperature = int(reponse_clean[-3:])  # 3 derniers caractères
+            return temperature
+        except ValueError:
+            return None
+    
+    return None
+
+def analyser_puissance_combustion(reponse):
+    """Analyse la réponse pour extraire la puissance de combustion"""
+    if not reponse:
+        return None
+    
+    reponse_clean = reponse.strip('\x08\r\n')
+    
+    # Format attendu: J30011000000000XXX
+    if reponse_clean.startswith('J30011000000000'):
+        try:
+            puissance = int(reponse_clean[-3:])  # 3 derniers caractères
+            return puissance
+        except ValueError:
+            return None
+    
+    return None
+
+def analyser_temperature_eau(reponse):
+    """Analyse la réponse pour extraire la température de l'eau"""
+    if not reponse:
+        return None
+    
+    reponse_clean = reponse.strip('\x08\r\n')
+    
+    # Format attendu: J30017000000000XXX
+    if reponse_clean.startswith('J30017000000000'):
+        try:
+            temperature = int(reponse_clean[-3:])  # 3 derniers caractères
+            return temperature
+        except ValueError:
+            return None
+    
+    return None
+
+def analyser_pression_eau(reponse):
+    """Analyse la réponse pour extraire la pression de l'eau"""
+    if not reponse:
+        return None
+    
+    reponse_clean = reponse.strip('\x08\r\n')
+    
+    # Format attendu: J30020000000001XXX
+    if reponse_clean.startswith('J30020000000001'):
+        try:
+            pression = int(reponse_clean[-3:])  # 3 derniers caractères
+            return pression / 100.0  # Conversion en bar (1138 -> 11.38)
+        except ValueError:
+            return None
+    
+    return None
+
+def analyser_temperature_consigne_eau(reponse):
+    """Analyse la réponse pour extraire la température de consigne de l'eau"""
+    if not reponse:
+        return None
+    
+    reponse_clean = reponse.strip('\x08\r\n')
+    
+    # Format attendu: B20180000000000XXX
+    if reponse_clean.startswith('B20180000000000'):
+        try:
+            temperature = int(reponse_clean[-3:])  # 3 derniers caractères
+            return temperature
+        except ValueError:
+            return None
+    
+    return None
+
 def publier_mqtt_discovery(client):
     """Publie la configuration MQTT Discovery"""
     
@@ -141,6 +226,92 @@ def publier_mqtt_discovery(client):
         "device": DEVICE_INFO
     }
     
+    # Capteur température fumée
+    config_temp_fumee = {
+        "name": "Température Fumée",
+        "state_topic": "ungaro/temperature/fumee",
+        "unique_id": "ungaro_temperature_fumee",
+        "unit_of_measurement": "°C",
+        "device_class": "temperature",
+        "icon": "mdi:thermometer",
+        "device": DEVICE_INFO
+    }
+    
+    # Capteur puissance combustion
+    config_puissance = {
+        "name": "Puissance Combustion",
+        "state_topic": "ungaro/puissance/combustion",
+        "unique_id": "ungaro_puissance_combustion",
+        "icon": "mdi:fire",
+        "device": DEVICE_INFO
+    }
+    
+    # Capteur température eau
+    config_temp_eau = {
+        "name": "Température Eau",
+        "state_topic": "ungaro/temperature/eau",
+        "unique_id": "ungaro_temperature_eau",
+        "unit_of_measurement": "°C",
+        "device_class": "temperature",
+        "icon": "mdi:water-thermometer",
+        "device": DEVICE_INFO
+    }
+    
+    # Capteur pression eau
+    config_pression_eau = {
+        "name": "Pression Eau",
+        "state_topic": "ungaro/pression/eau",
+        "unique_id": "ungaro_pression_eau",
+        "unit_of_measurement": "bar",
+        "device_class": "pressure",
+        "icon": "mdi:gauge",
+        "device": DEVICE_INFO
+    }
+    
+    # Capteur température consigne eau
+    config_temp_consigne_eau = {
+        "name": "Température Consigne Eau",
+        "state_topic": "ungaro/temperature/consigne_eau",
+        "unique_id": "ungaro_temperature_consigne_eau",
+        "unit_of_measurement": "°C",
+        "device_class": "temperature",
+        "icon": "mdi:thermometer-lines",
+        "device": DEVICE_INFO
+    }
+    
+    # Contrôle température consigne eau (number)
+    config_control_temp_consigne = {
+        "name": "Réglage Consigne Eau",
+        "command_topic": "ungaro/temperature/consigne_eau/set",
+        "state_topic": "ungaro/temperature/consigne_eau",
+        "unique_id": "ungaro_control_temperature_consigne_eau",
+        "unit_of_measurement": "°C",
+        "device_class": "temperature",
+        "icon": "mdi:thermometer-plus",
+        "min": 45,
+        "max": 75,
+        "step": 1,
+        "device": DEVICE_INFO
+    }
+    
+    # Bouton mise en marche
+    config_bouton_marche = {
+        "name": "Mise en Marche",
+        "command_topic": "ungaro/commande/marche",
+        "unique_id": "ungaro_bouton_marche",
+        "icon": "mdi:play",
+        "device": DEVICE_INFO
+    }
+    
+    # Bouton arrêt
+    config_bouton_arret = {
+        "name": "Arrêt",
+        "command_topic": "ungaro/commande/arret",
+        "unique_id": "ungaro_bouton_arret",
+        "icon": "mdi:stop",
+        "device": DEVICE_INFO
+    }
+    
     try:
         # Publication des configurations
         client.publish("homeassistant/sensor/ungaro_etat_code/config", 
@@ -151,12 +322,33 @@ def publier_mqtt_discovery(client):
                       json.dumps(config_erreur_num), retain=True)
         client.publish("homeassistant/sensor/ungaro_erreur_nom/config", 
                       json.dumps(config_erreur_nom), retain=True)
+        client.publish("homeassistant/sensor/ungaro_temperature_fumee/config", 
+                      json.dumps(config_temp_fumee), retain=True)
+        client.publish("homeassistant/sensor/ungaro_puissance_combustion/config", 
+                      json.dumps(config_puissance), retain=True)
+        client.publish("homeassistant/sensor/ungaro_temperature_eau/config", 
+                      json.dumps(config_temp_eau), retain=True)
+        client.publish("homeassistant/sensor/ungaro_pression_eau/config", 
+                      json.dumps(config_pression_eau), retain=True)
+        client.publish("homeassistant/sensor/ungaro_temperature_consigne_eau/config", 
+                      json.dumps(config_temp_consigne_eau), retain=True)
+        client.publish("homeassistant/number/ungaro_control_temperature_consigne_eau/config", 
+                      json.dumps(config_control_temp_consigne), retain=True)
+        client.publish("homeassistant/button/ungaro_bouton_marche/config", 
+                      json.dumps(config_bouton_marche), retain=True)
+        client.publish("homeassistant/button/ungaro_bouton_arret/config", 
+                      json.dumps(config_bouton_arret), retain=True)
         
         # États initiaux
         client.publish("ungaro/etat/code", "0", retain=True)
         client.publish("ungaro/etat/nom", "Eteinte", retain=True)
         client.publish("ungaro/erreur/code", "0", retain=True)
         client.publish("ungaro/erreur/nom", "Non", retain=True)
+        client.publish("ungaro/temperature/fumee", "0", retain=True)
+        client.publish("ungaro/puissance/combustion", "0", retain=True)
+        client.publish("ungaro/temperature/eau", "0", retain=True)
+        client.publish("ungaro/pression/eau", "0", retain=True)
+        client.publish("ungaro/temperature/consigne_eau", "0", retain=True)
         
         logger.info("MQTT Discovery configuré")
         
@@ -173,9 +365,12 @@ def on_connect(client, userdata, flags, rc):
     if rc == 0:
         logger.info("Connecté au broker MQTT")
         mqtt_connected = True
-        # S'abonner au topic homeassistant/status pour détecter les redémarrages HA
+        # S'abonner aux topics nécessaires
         client.subscribe("homeassistant/status")
-        logger.info("Abonnement au topic homeassistant/status")
+        client.subscribe("ungaro/temperature/consigne_eau/set")
+        client.subscribe("ungaro/commande/marche")
+        client.subscribe("ungaro/commande/arret")
+        logger.info("Abonnement aux topics de contrôle")
         # Publier la configuration Discovery
         publier_mqtt_discovery(client)
     else:
@@ -195,6 +390,50 @@ def on_message(client, userdata, msg):
         # Renvoyer le message MQTT discovery
         publier_mqtt_discovery(client)
         logger.info("Redémarrage HA détecté. Message MQTT Discovery renvoyé.")
+    elif msg.topic == "ungaro/temperature/consigne_eau/set":
+        # Commande de réglage de la température de consigne
+        try:
+            nouvelle_consigne = int(float(msg.payload.decode()))
+            if 45 <= nouvelle_consigne <= 75:
+                adresse_ip = os.environ.get('ADRESSE_IP', '192.168.1.16')
+                port_tcp = int(os.environ.get('PORT_TCP', '8899'))
+                
+                # Formatage de la commande avec la nouvelle consigne
+                commande = f"B20180000000000{nouvelle_consigne:03d}"
+                reponse = envoyer_commande_tcp(adresse_ip, port_tcp, commande)
+                
+                if reponse and reponse.startswith('A20180000000000'):
+                    logger.info(f"Consigne eau modifiée: {nouvelle_consigne}°C")
+                    # Publier la nouvelle valeur
+                    client.publish("ungaro/temperature/consigne_eau", str(nouvelle_consigne), retain=True)
+                else:
+                    logger.error(f"Erreur modification consigne eau: {reponse}")
+            else:
+                logger.warning(f"Consigne hors limites: {nouvelle_consigne}°C (45-75°C)")
+        except ValueError:
+            logger.error(f"Valeur consigne invalide: {msg.payload.decode()}")
+    elif msg.topic == "ungaro/commande/marche":
+        # Commande de mise en marche
+        adresse_ip = os.environ.get('ADRESSE_IP', '192.168.1.16')
+        port_tcp = int(os.environ.get('PORT_TCP', '8899'))
+        
+        reponse = envoyer_commande_tcp(adresse_ip, port_tcp, "J30253000000000001")
+        
+        if reponse and reponse.startswith('I30253000000000'):
+            logger.info("Chaudière mise en marche")
+        else:
+            logger.error(f"Erreur mise en marche: {reponse}")
+    elif msg.topic == "ungaro/commande/arret":
+        # Commande d'arrêt
+        adresse_ip = os.environ.get('ADRESSE_IP', '192.168.1.16')
+        port_tcp = int(os.environ.get('PORT_TCP', '8899'))
+        
+        reponse = envoyer_commande_tcp(adresse_ip, port_tcp, "J30254000000000001")
+        
+        if reponse and reponse.startswith('I30254000000000'):
+            logger.info("Chaudière arrêtée")
+        else:
+            logger.error(f"Erreur arrêt: {reponse}")
 
 def on_log(client, userdata, level, buf):
     logger.debug(buf)
@@ -208,6 +447,9 @@ def reconnect_to_mqtt():
             client.reconnect()
             # Si la reconnexion réussit, se réabonner aux topics nécessaires
             client.subscribe("homeassistant/status")
+            client.subscribe("ungaro/temperature/consigne_eau/set")
+            client.subscribe("ungaro/commande/marche")
+            client.subscribe("ungaro/commande/arret")
             logger.info("Reconnexion réussie, réabonnement aux topics.")
             mqtt_connected = True
             break  
@@ -319,6 +561,101 @@ def main():
                             client.publish("ungaro/erreur/nom", nom_erreur, retain=True)
                         except Exception as e:
                             logger.error(f"Erreur publication MQTT erreur: {e}")
+            
+            # Petite pause entre les requêtes
+            time.sleep(1)
+            
+            # Interroger la température de fumée
+            reponse_temp = envoyer_commande_tcp(adresse_ip, port_tcp, "I30005000000000000")
+            
+            if reponse_temp:
+                temperature_fumee = analyser_temperature_fumee(reponse_temp)
+                
+                if temperature_fumee is not None:
+                    logger.info(f"Température fumée: {temperature_fumee}°C")
+                    
+                    # Publier seulement si MQTT est connecté
+                    if mqtt_connected:
+                        try:
+                            client.publish("ungaro/temperature/fumee", str(temperature_fumee), retain=True)
+                        except Exception as e:
+                            logger.error(f"Erreur publication MQTT température: {e}")
+            
+            # Petite pause entre les requêtes
+            time.sleep(1)
+            
+            # Interroger la puissance de combustion
+            reponse_puissance = envoyer_commande_tcp(adresse_ip, port_tcp, "I30011000000000000")
+            
+            if reponse_puissance:
+                puissance_combustion = analyser_puissance_combustion(reponse_puissance)
+                
+                if puissance_combustion is not None:
+                    logger.info(f"Puissance combustion: {puissance_combustion}")
+                    
+                    # Publier seulement si MQTT est connecté
+                    if mqtt_connected:
+                        try:
+                            client.publish("ungaro/puissance/combustion", str(puissance_combustion), retain=True)
+                        except Exception as e:
+                            logger.error(f"Erreur publication MQTT puissance: {e}")
+            
+            # Petite pause entre les requêtes
+            time.sleep(1)
+            
+            # Interroger la température de l'eau
+            reponse_temp_eau = envoyer_commande_tcp(adresse_ip, port_tcp, "I30017000000000000")
+            
+            if reponse_temp_eau:
+                temperature_eau = analyser_temperature_eau(reponse_temp_eau)
+                
+                if temperature_eau is not None:
+                    logger.info(f"Température eau: {temperature_eau}°C")
+                    
+                    # Publier seulement si MQTT est connecté
+                    if mqtt_connected:
+                        try:
+                            client.publish("ungaro/temperature/eau", str(temperature_eau), retain=True)
+                        except Exception as e:
+                            logger.error(f"Erreur publication MQTT température eau: {e}")
+            
+            # Petite pause entre les requêtes
+            time.sleep(1)
+            
+            # Interroger la pression de l'eau
+            reponse_pression_eau = envoyer_commande_tcp(adresse_ip, port_tcp, "I30020000000000000")
+            
+            if reponse_pression_eau:
+                pression_eau = analyser_pression_eau(reponse_pression_eau)
+                
+                if pression_eau is not None:
+                    logger.info(f"Pression eau: {pression_eau} bar")
+                    
+                    # Publier seulement si MQTT est connecté
+                    if mqtt_connected:
+                        try:
+                            client.publish("ungaro/pression/eau", str(pression_eau), retain=True)
+                        except Exception as e:
+                            logger.error(f"Erreur publication MQTT pression eau: {e}")
+            
+            # Petite pause entre les requêtes
+            time.sleep(1)
+            
+            # Interroger la température de consigne de l'eau
+            reponse_temp_consigne = envoyer_commande_tcp(adresse_ip, port_tcp, "A20180000000000000")
+            
+            if reponse_temp_consigne:
+                temperature_consigne_eau = analyser_temperature_consigne_eau(reponse_temp_consigne)
+                
+                if temperature_consigne_eau is not None:
+                    logger.info(f"Température consigne eau: {temperature_consigne_eau}°C")
+                    
+                    # Publier seulement si MQTT est connecté
+                    if mqtt_connected:
+                        try:
+                            client.publish("ungaro/temperature/consigne_eau", str(temperature_consigne_eau), retain=True)
+                        except Exception as e:
+                            logger.error(f"Erreur publication MQTT température consigne eau: {e}")
             
             time.sleep(intervalle_maj)
             

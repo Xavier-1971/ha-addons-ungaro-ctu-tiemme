@@ -1,10 +1,10 @@
 {
-  "0": "Non",
-  "1": "Thermostat de sécurité HV1 : signalé également en cas d'arrêt du poêle",
-  "2": "Pressostat de sécurité HV2 : signalé avec le ventilateur de combustion en marche",
+  "0": "Aucune erreur",
+  "1": "Thermostat de sécurité HV1 ou HV2",
+  "2": "Erreur carte électronique",
   "3": "Extinction pour abaissement de la température d'évacuation",
-  "4": "Extinction pour surchauffe de l'eau",
-  "5": "Extinction pour surchauffe de l'évacuation",
+  "4": "Extinction pour surchauffe de l'eau < 92°C",
+  "5": "Calibration erronée de la combustion",
   "6": "Inconnu",
   "7": "Erreur de l'encodeur : Pas de signal codeur (en cas de P25=1 ou 2)",
   "8": "Erreur codeur : La régulation du ventilateur de combustion a échoué (en cas de P25=1 ou 2)",
@@ -13,9 +13,14 @@
   "11": "Le jour et l'heure ne sont pas corrects en raison d'une absence prolongée d'alimentation électrique",
   "12": "Échec de l'allumage",
   "13": "Allumage",
-  "14": "Allumage",
+  "14": "Tirage conduit de fumée insuffisant",
   "15": "Manque de tension d'alimentation",
   "16": "Allumage",
   "17": "Allumage",
-  "18": "Manque de tension d'alimentation"
+  "18": "Réservoir des pellets vide",
+  "25": "Anomalie de PM",
+  "26": "Anomalie de AEC",
+  "41": "Tirage execessif du conduit de fumée",
+  "42": "Mauvais Tirage de conduit de fumée",
+  "59": "Risque de condensation"
 }
