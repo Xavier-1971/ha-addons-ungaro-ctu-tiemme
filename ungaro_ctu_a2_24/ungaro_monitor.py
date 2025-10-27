@@ -153,6 +153,23 @@ def analyser_temperature_eau(reponse):
     
     return None
 
+def analyser_temperature_exterieure_chaudiere(reponse):
+    """Analyse la réponse pour extraire la température extérieure mesurée par la chaudière"""
+    if not reponse:
+        return None
+    
+    reponse_clean = reponse.strip('\x08\r\n')
+    
+    # Format attendu: I30044000000000XXX
+    if reponse_clean.startswith('I30044000000000'):
+        try:
+            temperature = int(reponse_clean[-3:])  # 3 derniers caractères
+            return temperature
+        except ValueError:
+            return None
+    
+    return None
+
 def analyser_pression_eau(reponse):
     """Analyse la réponse pour extraire la pression de l'eau"""
     if not reponse:
@@ -257,6 +274,17 @@ def publier_mqtt_discovery(client):
         "device": DEVICE_INFO
     }
     
+    # Capteur température extérieure chaudière
+    config_temp_ext_chaudiere = {
+        "name": "Température Extérieure Chaudière",
+        "state_topic": "ungaro/temperature/exterieure_chaudiere",
+        "unique_id": "ungaro_temperature_exterieure_chaudiere",
+        "unit_of_measurement": "°C",
+        "device_class": "temperature",
+        "icon": "mdi:thermometer-probe",
+        "device": DEVICE_INFO
+    }
+    
     # Capteur pression eau
     config_pression_eau = {
         "name": "Pression Eau",
@@ -341,6 +369,8 @@ def publier_mqtt_discovery(client):
                       json.dumps(config_pression_eau), retain=True)
         client.publish("homeassistant/sensor/ungaro_temperature_consigne_eau/config", 
                       json.dumps(config_temp_consigne_eau), retain=True)
+        client.publish("homeassistant/sensor/ungaro_temperature_exterieure_chaudiere/config", 
+                      json.dumps(config_temp_ext_chaudiere), retain=True)
         client.publish("homeassistant/number/ungaro_control_temperature_consigne_eau/config", 
                       json.dumps(config_control_temp_consigne), retain=True)
         client.publish("homeassistant/button/ungaro_bouton_marche/config", 
@@ -360,6 +390,7 @@ def publier_mqtt_discovery(client):
         client.publish("ungaro/temperature/eau", "0", retain=True)
         client.publish("ungaro/pression/eau", "0", retain=True)
         client.publish("ungaro/temperature/consigne_eau", "0", retain=True)
+        client.publish("ungaro/temperature/exterieure_chaudiere", "0", retain=True)
         
         logger.info("MQTT Discovery configuré")
         
@@ -680,6 +711,25 @@ def main():
                             client.publish("ungaro/temperature/consigne_eau", str(temperature_consigne_eau), retain=True)
                         except Exception as e:
                             logger.error(f"Erreur publication MQTT température consigne eau: {e}")
+            
+            # Petite pause entre les requêtes
+            time.sleep(1)
+            
+            # Interroger la température extérieure mesurée par la chaudière
+            reponse_temp_ext_chaudiere = envoyer_commande_tcp(adresse_ip, port_tcp, "J30044000000000000")
+            
+            if reponse_temp_ext_chaudiere:
+                temperature_exterieure_chaudiere = analyser_temperature_exterieure_chaudiere(reponse_temp_ext_chaudiere)
+                
+                if temperature_exterieure_chaudiere is not None:
+                    logger.info(f"Température extérieure chaudière: {temperature_exterieure_chaudiere}°C")
+                    
+                    # Publier seulement si MQTT est connecté
+                    if mqtt_connected:
+                        try:
+                            client.publish("ungaro/temperature/exterieure_chaudiere", str(temperature_exterieure_chaudiere), retain=True)
+                        except Exception as e:
+                            logger.error(f"Erreur publication MQTT température extérieure chaudière: {e}")
             
             time.sleep(intervalle_maj)
             
