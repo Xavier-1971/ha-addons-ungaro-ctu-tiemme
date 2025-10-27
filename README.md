@@ -68,4 +68,4 @@ Ces capteurs peuvent être utilisés dans vos automatisations, cartes et scripts
 
 ## Support
 
-Pour toute question ou problème, ouvrez une issue sur GitHub. dépot fonctionnel à l'heur actuel, mais non maintenu. necessite un bridge ethernet <->rs232
+Pour toute question ou problème, ouvrez une issue sur GitHub. dépot fonctionnel à l'heur actuel, mais non maintenu. necessite un bridge wfi <->rs232 (exemple:WiFi Elfin-EW10 Moo10A)
