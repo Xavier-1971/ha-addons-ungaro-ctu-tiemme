@@ -177,12 +177,15 @@ def analyser_pression_eau(reponse):
     
     reponse_clean = reponse.strip('\x08\r\n')
     
-    # Format attendu: J30020000000001XXX
-    if reponse_clean.startswith('J30020000000001'):
+    # Format attendu: J3002000000000XXXX (1 chiffre entier + 3 chiffres décimaux)
+    if reponse_clean.startswith('J3002000000000'):
         try:
-            pression = int(reponse_clean[-3:])  # 3 derniers caractères
-            return pression / 100.0  # Conversion en bar (1138 -> 11.38)
-        except ValueError:
+            valeur_complete = reponse_clean[-4:]  # 4 derniers caractères
+            partie_entiere = int(valeur_complete[0])  # Premier chiffre
+            partie_decimale = int(valeur_complete[1:])  # 3 derniers chiffres
+            # Reconstitution: partie_entière.partie_décimale
+            return partie_entiere + (partie_decimale / 1000.0)
+        except (ValueError, IndexError):
             return None
     
     return None
