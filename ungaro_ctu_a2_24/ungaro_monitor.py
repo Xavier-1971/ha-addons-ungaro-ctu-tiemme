@@ -160,10 +160,12 @@ def analyser_temperature_exterieure_chaudiere(reponse):
     
     reponse_clean = reponse.strip('\x08\r\n')
     
-    # Format attendu: I30044000000000XXX
-    if reponse_clean.startswith('I30044000000000'):
+    # Format attendu: I30044000000-00002 (négatif) ou I30044000000000015 (positif)
+    if reponse_clean.startswith('I30044000000'):
         try:
-            temperature = int(reponse_clean[-3:])  # 3 derniers caractères
+            # Extraire tout après "I30044000000" (12 caractères)
+            temp_str = reponse_clean[12:]
+            temperature = int(temp_str)  # int() gère automatiquement le signe -
             return temperature
         except ValueError:
             return None

@@ -64,7 +64,7 @@ Ces capteurs peuvent être utilisés dans vos automatisations, cartes et scripts
 
 ## Version
 
-**1.0.0** - Version initiale avec surveillance d'état de base
+**3.2.3** - Correction température extérieure négative
 
 ## Support
 
